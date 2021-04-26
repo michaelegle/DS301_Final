@@ -22,7 +22,42 @@ veh <- read_csv("veh.csv") %>%
   janitor::clean_names()
 ```
 
-# EDA
+## Data cleaning
+
+```{r}
+# First make these categories a little easier to interpret than just numbers
+accidents <- accidents %>%
+  mutate(weather_conditions = case_when(weather_conditions == -1 ~ "No data",
+                                        weather_conditions == 1 ~ "Fine",
+                                        weather_conditions == 2 ~ "Rain, no high wind",
+                                        weather_conditions == 3 ~ "Snow, no high wind",
+                                        weather_conditions == 4 ~ "Fine, high wind",
+                                        weather_conditions == 5 ~ "Rain, high wind",
+                                        weather_conditions == 6 ~ "Snow, high wind",
+                                        weather_conditions == 7 ~ "Fog or mist",
+                                        weather_conditions == 8 ~ "Other",
+                                        weather_conditions == 9 ~ "Unknown",
+                                        TRUE ~ "NA"),
+         accident_severity = case_when(accident_severity == 1 ~ "Fatal",
+                                       accident_severity == 2 ~ "Serious",
+                                       accident_severity == 3 ~ "Slight")) %>%
+  filter(weather_conditions != "No data" & weather_conditions != "Other" &
+         weather_conditions != "Unknown" & weather_conditions != "NA") # get rid of ambiguous/unknown weather
+```
+
+# Question 1: Can We Predict The Severity of an Accident?
+
+## EDA
+
+```{r}
+table(accidents$accident_severity, accidents$weather_conditions)
+```
+
+```{r}
+
+```
+
+# Question 2: TBD
 
 ```{r}
 
