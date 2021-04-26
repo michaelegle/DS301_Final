@@ -1,0 +1,30 @@
+---
+title: "DS 301 Final"
+author: "Michael Egle"
+date: "4/26/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+```
+
+```{r}
+cas <- read_csv("cas.csv") %>%
+  janitor::clean_names()
+accidents <- read_csv("dftRoadSafety_Accidents_2016.csv") %>%
+  janitor::clean_names()
+makemodel <- read_csv("MakeModel2016.csv") %>%
+  janitor::clean_names()
+veh <- read_csv("veh.csv") %>%
+  janitor::clean_names()
+```
+
+# EDA
+
+```{r}
+
+```
+
