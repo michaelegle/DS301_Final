@@ -173,8 +173,8 @@ glm.prob = predict(glm.fit,test,type='response')
 In order to pick a threshold value for our model, we need to plot the true positive rate v. false positive rate and true negative rate v. false negative rate. Since our dataset is so unbalanced, it is important to pick a value that ensures a nice tradeoff between the two errors since our model will most likely pick "Not Fatal" 100% of the time if we don't.
 ```{r}
 ROCRpred = ROCR::prediction(glm.prob, test$accident_severity)
-plot(performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
-plot(performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+plot(ROCR::performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+plot(ROCR::performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
 ```
 
 The plots show that 0.99 is a good middle ground to balance the two errors
