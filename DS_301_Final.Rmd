@@ -230,6 +230,7 @@ Below, you can see what our neural network looks like.\
 ```{r}
 plot(nn)
 ```
+![](neuralnet.png)
 
 It's now time to run the network on the test data.\
 ```{r}
