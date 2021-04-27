@@ -170,10 +170,13 @@ glm.fit <- glm(accident_severity ~ ., data = test, family = 'binomial')
 glm.prob = predict(glm.fit,test,type='response') 
 ```
 
-In order to pick a threshold value for our model, we need to plot the true positive rate v. false positive rate and true negative rate v. false negative rate. Since our dataset is so unbalanced, it is important to pick a value that ensures a nice tradeoff between the two errors since our model will most likely pick "Not Fatal" 100% of the time if we don't.
+In order to pick a threshold value for our model, we need to plot the true positive rate v. false positive rate and true negative rate v. false negative rate. Since our dataset is so unbalanced, it is important to pick a value that ensures a nice tradeoff between the two errors since our model will most likely pick "Not Fatal" 100% of the time if we don't.\
 ```{r}
 ROCRpred = ROCR::prediction(glm.prob, test$accident_severity)
 plot(ROCR::performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+```
+\
+```{r}
 plot(ROCR::performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
 ```
 
@@ -183,16 +186,19 @@ glm.pred = rep("Not Fatal", length(glm.prob))
 glm.pred[glm.prob > 0.99] = "Fatal"
 ```
 
-Let's now display the confusion matrix and overall accuracy to see how our model performs
+Let's now display the confusion matrix and overall accuracy to see how our model performs.\
 ```{r}
 table(glm.pred, test$accident_severity)
+```
+\
+```{r}
 mean(glm.pred == test$accident_severity)
 ```
 So, our logistic model can predict when an accident will be fatal based on road conditions ~33% of the time. Not horrible given the lack of predictors and unbalanced data, but let's try some different models to see if we can reduce this error.
 
-Let's try a tree model to see if it can fix this error
+Let's try a tree model to see if it can fix this error.\
 ```{r}
-tree.conditions = tree(accident_severity~.,data=train)
+tree.conditions = tree(accident_severity~., data=train)
 tree.pred = predict(tree.conditions, newdata=test, type="class")
 table(tree.pred, test$accident_severity)
 ```
@@ -201,32 +207,55 @@ Again, since the data is so unbalanced, the tree predicts "Not Fatal" 100% of th
 Let's try a neural network next.\
 We first need to one-hot encode our data in order to pass it into the neural network. The reason we do this is because if we pass in each predictor as a factor, it will weigh higher values more which will hurt the accuracy of the model. By creating a variable for each factor level, they all get weighed evenly.
 ```{r}
-train2 <- one_hot(data.table(train), cols=c("light_conditions", "weather_conditions", "road_surface_conditions"))
-test2 <- one_hot(data.table(test), cols=c("light_conditions", "weather_conditions", "road_surface_conditions"))
+train2 <- one_hot(data.table(train), 
+                  cols=c("light_conditions", 
+                         "weather_conditions", 
+                         "road_surface_conditions"))
+test2 <- one_hot(data.table(test), 
+                 cols=c("light_conditions", 
+                        "weather_conditions", 
+                        "road_surface_conditions"))
 ```
 
 Now, let's build and train the neural network. We will use a single hidden layer with 6 neurons and each neuron will use the logistic function as the activation function. This provides non-linearity to help map the abstract complexities and patterns found in the data.
 ```{r}
-nn=neuralnet(accident_severity~.,data=train2, hidden=6,act.fct = "logistic", linear.output = FALSE)
+nn=neuralnet(accident_severity~.,
+             data=train2, 
+             hidden=6,
+             act.fct = "logistic", 
+             linear.output = FALSE)
 ```
 
-Below, you can see what our neural network looks like
+Below, you can see what our neural network looks like.\
 ```{r}
 plot(nn)
 ```
 
-It's now time to run the network on the test data.
+It's now time to run the network on the test data.\
 ```{r}
 Predict=compute(nn,test2)
 head(Predict$net.result, 5)
 ```
 We now have a table with each column representing an output neuron. The first column is the output of the "Not Fatal" output neuron, and the second column is the output of the "Fatal" output neuron.\
 \
-Before we label each of these predictions, we must choose a confidence value. Normally, a model should have output neurons that are really close to 1 or 0 depending on the output. However, due to our unbalanced data, we must choose a value that is closer to the 0.9 - 1 range like we did for logistic regression. Let's plot the true positive rate v. false positive rate and true negative rate v. false negative rate
+Before we label each of these predictions, we must choose a confidence value. Normally, a model should have output neurons that are really close to 1 or 0 depending on the output. However, due to our unbalanced data, we must choose a value that is closer to the 0.9 - 1 range like we did for logistic regression. Let's plot the true positive rate v. false positive rate and true negative rate v. false negative rate.
 ```{r}
-ROCRpred = ROCR::prediction(Predict$net.result[,2], test2$accident_severity)
-plot(ROCR::performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
-plot(ROCR::performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+ROCRpred = ROCR::prediction(Predict$net.result[,2], 
+                            test2$accident_severity)
+```
+\
+```{r}
+plot(ROCR::performance(ROCRpred,'tpr','fpr'),
+     colorize=TRUE,
+     print.cutoffs.at=seq(0.95,1,by=0.01), 
+     text.adj=c(-0.2,1.7))
+```
+\
+```{r}
+plot(ROCR::performance(ROCRpred,'tnr','fnr'),
+     colorize=TRUE,
+     print.cutoffs.at=seq(0.95,1,by=0.01), 
+     text.adj=c(-0.2,1.7))
 ```
 
 A threshold value of 0.99 should work again.
@@ -241,9 +270,12 @@ for (i in 1:nrow(Predict$net.result)) {
 }
 ```
 
-Let's look at the results.
+Let's look at the results.\
 ```{r}
 table(results, test2$accident_severity)
+```
+\
+```{r}
 mean(results == test2$accident_severity)
 ```
 
