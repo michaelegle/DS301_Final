@@ -29,61 +29,6 @@ veh <- read_csv("veh.csv") %>%
 ## Data cleaning
 
 ```{r}
-# First make these categories a little easier to interpret than just numbers
-accidents <- accidents %>%
-  mutate(weather_conditions = case_when(weather_conditions == -1 ~ "No data",
-                                        weather_conditions == 1 ~ "Fine",
-                                        weather_conditions == 2 ~ "Rain, no high wind",
-                                        weather_conditions == 3 ~ "Snow, no high wind",
-                                        weather_conditions == 4 ~ "Fine, high wind",
-                                        weather_conditions == 5 ~ "Rain, high wind",
-                                        weather_conditions == 6 ~ "Snow, high wind",
-                                        weather_conditions == 7 ~ "Fog or mist",
-                                        weather_conditions == 8 ~ "Other",
-                                        weather_conditions == 9 ~ "Unknown",
-                                        TRUE ~ "NA"),
-         accident_severity = case_when(accident_severity == 1 ~ "Fatal",
-                                       accident_severity == 2 ~ "Serious",
-                                       accident_severity == 3 ~ "Slight"),
-         light_conditions = case_when(light_conditions == 1 ~ "Daylight",
-                                      light_conditions == 4 ~ "Darkness - lights lit",
-                                      light_conditions == 5 ~ "Darkness - lights unlit",
-                                      light_conditions == 6 ~ "Darkness - no lighting",
-                                      light_conditions == 7 ~ "Unknown",
-                                      light_conditions == -1 ~ "No data",
-                                      TRUE ~ "NA"),
-         road_surface_conditions = case_when(road_surface_conditions == 1 ~ "Dry",
-                                      road_surface_conditions == 2 ~ "Wet or Damp",
-                                      road_surface_conditions == 3 ~ "Snow",
-                                      road_surface_conditions == 4 ~ "Frost or Ice",
-                                      road_surface_conditions == 5 ~ "Flood over 3cm",
-                                      road_surface_conditions == 6 ~ "Oil or diesel",
-                                      road_surface_conditions == 7 ~ "Mud",
-                                      road_surface_conditions == -1 ~ "No data",
-                                      TRUE ~ "NA")) %>%
-  filter(weather_conditions != "No data" & weather_conditions != "Other" &
-         weather_conditions != "Unknown" & weather_conditions != "NA" &
-         light_conditions != "No data" & light_conditions != "Other" &
-         light_conditions != "Unknown" & light_conditions != "NA" &
-         road_surface_conditions != "No data" & road_surface_conditions != "Other" &
-         road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
-```
-
-# Question 1: Can We Predict The Severity of an Accident?
-
-## EDA
-
-```{r}
-table(accidents$accident_severity, accidents$weather_conditions)
-```
-
-```{r}
-
-```
-
-# Question 2: Can we predict when an accident will be fatal based on the driving conditions?
-
-```{r}
 accidents <- accidents %>%
   mutate(weather_conditions = case_when(weather_conditions == -1 ~ "No data",
                                         weather_conditions == 1 ~ "Fine",
@@ -122,6 +67,20 @@ accidents <- accidents %>%
          road_surface_conditions != "No data" & road_surface_conditions != "Other" &
          road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
 ```
+
+# Question 1: Can We Predict The Severity of an Accident?
+
+## EDA
+
+```{r}
+table(accidents$accident_severity, accidents$weather_conditions)
+```
+
+```{r}
+
+```
+
+# Question 2: Can we predict when an accident will be fatal based on the driving conditions?
 
 First, let's select columns that correspond to driving conditions. We have decided to go with Weather Conditions, Light Conditions and Road Surface Conditions for our predictors
 ```{r}
@@ -167,13 +126,13 @@ test = conditions[test_idx,]
 
 The first model we are going to try is binary logistic regression. We will fit the model using Accident Severity as the response, and all the other variables as our predictors.
 ```{r}
-glm.fit <- glm(accident_severity ~ ., data = train, family = 'binomial')
+glm.fit <- glm(accident_severity ~ ., data = test, family = 'binomial')
 glm.prob = predict(glm.fit,test,type='response') 
 ```
 
 In order to pick a threshold value for our model, we need to plot the true positive rate v. false positive rate and true negative rate v. false negative rate. Since our dataset is so unbalanced, it is important to pick a value that ensures a nice tradeoff between the two errors since our model will most likely pick "Not Fatal" 100% of the time if we don't.
 ```{r}
-ROCRpred = prediction(glm.prob, test$accident_severity)
+ROCRpred = ROCR::prediction(glm.prob, test$accident_severity)
 plot(performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
 plot(performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
 ```
