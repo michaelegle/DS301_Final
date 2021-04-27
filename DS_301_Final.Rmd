@@ -9,6 +9,10 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(janitor)
+library(tree)
+library(stats)
+library(factoextra)
+library(neuralnet)
 ```
 
 ```{r}
@@ -40,9 +44,29 @@ accidents <- accidents %>%
                                         TRUE ~ "NA"),
          accident_severity = case_when(accident_severity == 1 ~ "Fatal",
                                        accident_severity == 2 ~ "Serious",
-                                       accident_severity == 3 ~ "Slight")) %>%
+                                       accident_severity == 3 ~ "Slight"),
+         light_conditions = case_when(light_conditions == 1 ~ "Daylight",
+                                      light_conditions == 4 ~ "Darkness - lights lit",
+                                      light_conditions == 5 ~ "Darkness - lights unlit",
+                                      light_conditions == 6 ~ "Darkness - no lighting",
+                                      light_conditions == 7 ~ "Unknown",
+                                      light_conditions == -1 ~ "No data",
+                                      TRUE ~ "NA"),
+         road_surface_conditions = case_when(road_surface_conditions == 1 ~ "Dry",
+                                      road_surface_conditions == 2 ~ "Wet or Damp",
+                                      road_surface_conditions == 3 ~ "Snow",
+                                      road_surface_conditions == 4 ~ "Frost or Ice",
+                                      road_surface_conditions == 5 ~ "Flood over 3cm",
+                                      road_surface_conditions == 6 ~ "Oil or diesel",
+                                      road_surface_conditions == 7 ~ "Mud",
+                                      road_surface_conditions == -1 ~ "No data",
+                                      TRUE ~ "NA")) %>%
   filter(weather_conditions != "No data" & weather_conditions != "Other" &
-         weather_conditions != "Unknown" & weather_conditions != "NA") # get rid of ambiguous/unknown weather
+         weather_conditions != "Unknown" & weather_conditions != "NA" &
+         light_conditions != "No data" & light_conditions != "Other" &
+         light_conditions != "Unknown" & light_conditions != "NA" &
+         road_surface_conditions != "No data" & road_surface_conditions != "Other" &
+         road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
 ```
 
 # Question 1: Can We Predict The Severity of an Accident?
@@ -57,9 +81,143 @@ table(accidents$accident_severity, accidents$weather_conditions)
 
 ```
 
-# Question 2: TBD
+# Question 2: Can we predict when an accident will be fatal based on the driving conditions?
 
 ```{r}
-
+accidents <- accidents %>%
+  mutate(weather_conditions = case_when(weather_conditions == -1 ~ "No data",
+                                        weather_conditions == 1 ~ "Fine",
+                                        weather_conditions == 2 ~ "Rain_no_high_wind",
+                                        weather_conditions == 3 ~ "Snow_no_high_wind",
+                                        weather_conditions == 4 ~ "Fine_high_wind",
+                                        weather_conditions == 5 ~ "Rain_high_wind",
+                                        weather_conditions == 6 ~ "Snow_high_wind",
+                                        weather_conditions == 7 ~ "Fog_or_mist",
+                                        weather_conditions == 8 ~ "Other",
+                                        weather_conditions == 9 ~ "Unknown",
+                                        TRUE ~ "NA"),
+         accident_severity = case_when(accident_severity == 1 ~ "Fatal",
+                                       accident_severity == 2 ~ "Serious",
+                                       accident_severity == 3 ~ "Slight"),
+         light_conditions = case_when(light_conditions == 1 ~ "Daylight",
+                                      light_conditions == 4 ~ "Darkness_lights_lit",
+                                      light_conditions == 5 ~ "Darkness_lights_unlit",
+                                      light_conditions == 6 ~ "Darkness_no_lighting",
+                                      light_conditions == 7 ~ "Unknown",
+                                      light_conditions == -1 ~ "No data",
+                                      TRUE ~ "NA"),
+         road_surface_conditions = case_when(road_surface_conditions == 1 ~ "Dry",
+                                      road_surface_conditions == 2 ~ "Wet_or_Damp",
+                                      road_surface_conditions == 3 ~ "Snow",
+                                      road_surface_conditions == 4 ~ "Frost_or_Ice",
+                                      road_surface_conditions == 5 ~ "Flood_over_3cm",
+                                      road_surface_conditions == 6 ~ "Oil_or_diesel",
+                                      road_surface_conditions == 7 ~ "Mud",
+                                      road_surface_conditions == -1 ~ "No data",
+                                      TRUE ~ "NA")) %>%
+  filter(weather_conditions != "No data" & weather_conditions != "Other" &
+         weather_conditions != "Unknown" & weather_conditions != "NA" &
+         light_conditions != "No data" & light_conditions != "Other" &
+         light_conditions != "Unknown" & light_conditions != "NA" &
+         road_surface_conditions != "No data" & road_surface_conditions != "Other" &
+         road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
 ```
+
+First, let's select columns that correspond to driving conditions. We have decided to go with Weather Conditions, Light Conditions and Road Surface Conditions for our predictors
+```{r}
+conditions <- accidents %>% 
+  dplyr::select(
+    accident_severity, 
+    weather_conditions, 
+    light_conditions, 
+    road_surface_conditions)
+```
+
+Now, we must convert our response into a binary variable that is either "Fatal" or "Not Fatal"
+```{r}
+conditions <- conditions %>% dplyr::mutate(
+    accident_severity = case_when(accident_severity != "Fatal" ~ "Not Fatal",
+                                  accident_severity == "Fatal" ~ "Fatal")
+  ) 
+```
+
+Finally, we need to convert all of the categorical variables into factors
+```{r}
+conditions <- conditions %>% 
+  dplyr::mutate(
+    accident_severity = as.factor(conditions$accident_severity), 
+    weather_conditions = as.factor(conditions$weather_conditions), 
+    light_conditions = as.factor(conditions$light_conditions), 
+    road_surface_conditions = as.factor(conditions$road_surface_conditions))
+```
+
+Let's look at how balanced our data is
+```{r}
+conditions %>% group_by(accident_severity) %>% summarise(count=n())
+```
+Clearly the data is not as balanced as we would like. Only 1.24% of accidents are fatal, so that will need to be taken into consideration as we proceed
+
+Now that we have our data all cleaned, we can separate it into training and testing sets
+```{r}
+set.seed(19)
+test_idx = sample(1:nrow(conditions), nrow(conditions)/3)
+train = conditions[-test_idx,]
+test = conditions[test_idx,]
+```
+
+The first model we are going to try is binary logistic regression. We will fit the model using Accident Severity as the response, and all the other variables as our predictors.
+```{r}
+glm.fit <- glm(accident_severity ~ ., data = train, family = 'binomial')
+glm.prob = predict(glm.fit,test,type='response') 
+```
+
+In order to pick a threshold value for our model, we need to plot the true positive rate v. false positive rate and true negative rate v. false negative rate. Since our dataset is so unbalanced, it is important to pick a value that ensures a nice tradeoff between the two errors since our model will most likely pick "Not Fatal" 100% of the time if we don't.
+```{r}
+ROCRpred = prediction(glm.prob, test$accident_severity)
+plot(performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+plot(performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+```
+
+The plots show that 0.99 is a good middle ground to balance the two errors
+```{r}
+glm.pred = rep("Not Fatal", length(glm.prob))
+glm.pred[glm.prob > 0.99] = "Fatal"
+```
+
+Let's now display the confusion matrix and overall accuracy to see how our model performs
+```{r}
+table(glm.pred, test$accident_severity)
+mean(glm.pred == test$accident_severity)
+```
+So, our logistic model can predict when an accident will be fatal based on road conditions ~33% of the time. Not horrible given the lack of predictors and unbalanced data, but let's try some different models to see if we can reduce this error.
+
+Let's try a tree model to see if it can fix this error
+```{r}
+tree.conditions = tree(accident_severity~.,data=train)
+tree.pred = predict(tree.conditions, newdata=test, type="class")
+table(tree.pred, test$accident_severity)
+```
+Again, since the data is so unbalanced, the tree predicts "Not Fatal" 100% of the time in order to achieve and accuracy of 98.68% which looks good, but does not fulfill our purpose.
+
+Let's try a neural network next. 
+```{r}
+library(mltools)
+install.packages("mltools")
+train
+
+train2 <- one_hot(data.table(train), cols=c("light_conditions", "weather_conditions", "road_surface_conditions"))
+test2 <- one_hot(data.table(train), cols=c("light_conditions", "weather_conditions", "road_surface_conditions"))
+
+colnames(train2)
+
+nn=neuralnet(accident_severity~.,data=train2, hidden=6,act.fct = "logistic", linear.output = FALSE)
+plot(nn)
+Predict=compute(nn,test2)
+Predict$net.result
+test$accident_severity
+```
+
+
+
+
 
