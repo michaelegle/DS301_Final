@@ -1,6 +1,6 @@
 ---
 title: "DS 301 Final"
-author: "Michael Egle"
+author: "Bennet B"
 date: "4/26/2021"
 output: pdf_document
 ---
@@ -10,8 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(janitor)
 library(MASS)
-```
-
+``` 
+ -
 ```{r}
 cas <- read_csv("cas.csv") %>%
   janitor::clean_names()
