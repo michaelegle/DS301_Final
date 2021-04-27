@@ -31,8 +31,29 @@ veh <- read_csv("veh.csv") %>%
   janitor::clean_names()
 ```
 
-## Data cleaning
+# Introduction\
+Here we need a summary of what we are trying to discover in our report
 
+## The Dataset\
+This should provide an analysis of the dataset and explore trends/patters in the data
+
+**EDA**
+```{r}
+table(accidents$accident_severity)
+```
+
+## Questions of Interest\
+After exploring the data, we decided to analyze two questions of interest.
+
+1. Can We Help Find Safer Routes For Cyclists?
+2. Can we predict when an accident will be fatal based on the driving conditions?
+
+
+# Methodology\
+This section is for describing the methodology we will use to analyze our questions of interest
+
+
+## Data cleaning
 ```{r}
 accidents <- accidents %>%
   mutate(weather_conditions = case_when(weather_conditions == -1 ~ "No data",
@@ -73,14 +94,8 @@ accidents <- accidents %>%
          road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
 ```
 
+
 # Question 1: Can We Help Find Safer Routes For Cyclists?
-
-## EDA
-
-```{r}
-table(accidents$accident_severity)
-```
-
 
 ```{r}
 accidents %>%
@@ -90,10 +105,9 @@ accidents %>%
   theme_minimal()
 ```
 
-Of course, a vast majority of the accidents are slight or serious. However, there are some pretty evident clusters of fatal accidents across the country. We will use a kNN model to see if we can predict the severity of an accident 
-
+Of course, a vast majority of the accidents are slight or serious. However, there are some pretty evident clusters of fatal accidents across the country. We will use a kNN model to see if we can predict the severity of an accident\
+\
 Let's create our kNN model
-
 ```{r}
 set.seed(37)
 accidents <- accidents %>%
@@ -116,11 +130,10 @@ knn_pred <- knn(train_X, test_X, train_Y, k = 1)
 print(mean(knn_pred == test_Y))
 table(knn_pred, test_Y)
 ```
-
 We have an overall correct classification rate of 0.71
 
-# Question 2: Can we predict when an accident will be fatal based on the driving conditions?
 
+# Question 2: Can we predict when an accident will be fatal based on the driving conditions?
 
 First, let's select columns that correspond to driving conditions. We have decided to go with Weather Conditions, Light Conditions and Road Surface Conditions for our predictors
 ```{r}
@@ -279,8 +292,30 @@ table(results, test2$accident_severity)
 ```{r}
 mean(results == test2$accident_severity)
 ```
-
 The neural net gets 69.53% overall accuracy, and it gets 47.4% on fatal and 69.82% on not fatal.
 
 
+# Results\
+This section is for grabbing all the results we found and providing a more thorough analysis
+
+
+# Conclusion\
+THis section should wrap up the report by summing up the methodology and results
+
+
+# Member Contributions
+
+Andrew Fahmy
+
+Bennet Brosseau
+
+Jeffrey Kinard
+i. Question 2 Logistic Regression Modeling and Threshold Tuning
+ii. Question 2 Tree Modeling
+iii. Question 2 Neural Network Modeling and Threshold Tuning
+iv. Question 2 Results analysis
+
+John Langenwalter
+
+Michael Egle
 
