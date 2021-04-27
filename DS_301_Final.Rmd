@@ -9,6 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(janitor)
+library(MASS)
 ```
 
 ```{r}
@@ -40,9 +41,19 @@ accidents <- accidents %>%
                                         TRUE ~ "NA"),
          accident_severity = case_when(accident_severity == 1 ~ "Fatal",
                                        accident_severity == 2 ~ "Serious",
-                                       accident_severity == 3 ~ "Slight")) %>%
+                                       accident_severity == 3 ~ "Slight"),
+         light_conditions = case_when(light_conditions == 1 ~ "Daylight",
+                                      light_conditions == 4 ~ "Darkness, lights on",
+                                      light_conditions == 5 ~ "Darkness, lights off",
+                                      light_conditions == 6 ~ "Darkness, no lights",
+                                      light_conditions == 7 ~ "Unkown",
+                                      light_conditions == -1 ~ "Missing"),
+         weather_conditions = as.factor(weather_conditions),
+         accident_severity = as.factor(accident_severity),
+         light_conditions = as.factor(light_conditions)) %>%
   filter(weather_conditions != "No data" & weather_conditions != "Other" &
-         weather_conditions != "Unknown" & weather_conditions != "NA") # get rid of ambiguous/unknown weather
+         weather_conditions != "Unknown" & weather_conditions != "NA" & 
+         light_conditions != "Unkown" & light_conditions != "Missing") # get rid of ambiguous/unknown weather
 ```
 
 # Question 1: Can We Predict The Severity of an Accident?
@@ -50,11 +61,38 @@ accidents <- accidents %>%
 ## EDA
 
 ```{r}
-table(accidents$accident_severity, accidents$weather_conditions)
+prop.table(table(accidents$accident_severity, accidents$weather_conditions), margin = 2)
 ```
 
-```{r}
 
+It appears that the weather might not have a *huge* impact on accidents, but it's possible that it plays a role. We'll have to investiage further once we start modeling.
+
+```{r}
+prop.table(table(accidents$accident_severity, accidents$speed_limit), margin = 2)
+```
+
+It looks like there's a higher proportion of serious and fatal accidents on roads that have a speed limit of 60 km/h. This could be significant.
+
+Let's try using an LDA model to classify the accident severity
+
+```{r}
+set.seed(37)
+
+accidents <- accidents[complete.cases(accidents),]
+
+test_index <- sample(1:nrow(accidents), nrow(accidents) / 2, replace = F)
+
+train <- accidents[-test_index,]
+test <- accidents[test_index,]
+
+acc_lda <- lda(accident_severity ~ .-accident_index,
+               data = train) # the index doesn't offer any predictive value
+# The above line will take a while, be patient!
+
+
+lda_test <- predict(acc_lda, test)
+
+table(lda_test$class, test$accident_severity)
 ```
 
 # Question 2: TBD
