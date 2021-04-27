@@ -16,6 +16,8 @@ library(neuralnet)
 library(mltools)
 library(data.table)
 library(MASS)
+library(ISLR)
+library(class)
 ```
 
 ```{r, include=FALSE}
@@ -68,50 +70,57 @@ accidents <- accidents %>%
          light_conditions != "No data" & light_conditions != "Other" &
          light_conditions != "Unknown" & light_conditions != "NA" &
          road_surface_conditions != "No data" & road_surface_conditions != "Other" &
-         road_surface_conditions != "Unknown" & road_surface_conditions != "NA") 
-         # get rid of ambiguous/unknown weather/light conditions
+         road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
 ```
 
-# Question 1: Can We Predict The Severity of an Accident?
+# Question 1: Can We Help Find Safer Routes For Cyclists?
 
 ## EDA
 
 ```{r}
-prop.table(table(accidents$accident_severity, accidents$weather_conditions), margin = 2)
+table(accidents$accident_severity)
 ```
 
-
-It appears that the weather might not have a *huge* impact on accidents, but it's possible that it plays a role. We'll have to investiage further once we start modeling.
 
 ```{r}
-prop.table(table(accidents$accident_severity, accidents$speed_limit), margin = 2)
+accidents %>%
+  ggplot(aes(x = longitude, y = latitude, color = accident_severity)) +
+  geom_point() +
+  coord_fixed() +
+  theme_minimal()
 ```
 
-It looks like there's a higher proportion of serious and fatal accidents on roads that have a speed limit of 60 km/h. This could be significant.
+Of course, a vast majority of the accidents are slight or serious. However, there are some pretty evident clusters of fatal accidents across the country. We will use a kNN model to see if we can predict the severity of an accident 
 
-Let's try using an LDA model to classify the accident severity
+Let's create our kNN model
 
 ```{r}
 set.seed(37)
-
-accidents <- accidents[complete.cases(accidents),]
+accidents <- accidents %>%
+  filter(!is.na(latitude) & !is.na(longitude))
 
 test_index <- sample(1:nrow(accidents), nrow(accidents) / 2, replace = F)
 
-train <- accidents[-test_index,]
-test <- accidents[test_index,]
+standardized_X <- scale(accidents %>% dplyr::select(latitude, longitude))
 
-acc_lda <- lda(accident_severity ~ .-accident_index,
-               data = train) # the index doesn't offer any predictive value
-# The above line will take a while, be patient!
+train_X <- standardized_X[-test_index,]
+test_X <- standardized_X[test_index,]
+train_Y <- accidents$accident_severity[-test_index]
+test_Y <- accidents$accident_severity[test_index]
 
-
-lda_test <- predict(acc_lda, test)
-
-table(lda_test$class, test$accident_severity)
+set.seed(37)
+knn_pred <- knn(train_X, test_X, train_Y, k = 1)
 ```
 
+```{r}
+print(mean(knn_pred == test_Y))
+table(knn_pred, test_Y)
+```
+
+We have an overall correct classification rate of 0.71
+
 # Question 2: Can we predict when an accident will be fatal based on the driving conditions?
+
 
 First, let's select columns that correspond to driving conditions. We have decided to go with Weather Conditions, Light Conditions and Road Surface Conditions for our predictors
 ```{r}
@@ -164,8 +173,8 @@ glm.prob = predict(glm.fit,test,type='response')
 In order to pick a threshold value for our model, we need to plot the true positive rate v. false positive rate and true negative rate v. false negative rate. Since our dataset is so unbalanced, it is important to pick a value that ensures a nice tradeoff between the two errors since our model will most likely pick "Not Fatal" 100% of the time if we don't.
 ```{r}
 ROCRpred = ROCR::prediction(glm.prob, test$accident_severity)
-plot(ROCR::performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
-plot(ROCR::performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+plot(performance(ROCRpred,'tpr','fpr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
+plot(performance(ROCRpred,'tnr','fnr'),colorize=TRUE,print.cutoffs.at=seq(0.95,1,by=0.01), text.adj=c(-0.2,1.7))
 ```
 
 The plots show that 0.99 is a good middle ground to balance the two errors
