@@ -18,6 +18,7 @@ library(data.table)
 library(MASS)
 library(ISLR)
 library(class)
+library(ggplot2)
 ```
 
 ```{r, include=FALSE}
@@ -165,7 +166,7 @@ conditions <- conditions %>%
 
 Let's look at how balanced our data is
 ```{r}
-conditions %>% group_by(accident_severity) %>% summarise(count=n())
+conditions %>% group_by(accident_severity) %>% summarise(count=n()) %>% ggplot(aes(x=accident_severity, y=count)) + geom_bar(stat="identity")
 ```
 Clearly the data is not as balanced as we would like. Only 1.24% of accidents are fatal, so that will need to be taken into consideration as we proceed
 
