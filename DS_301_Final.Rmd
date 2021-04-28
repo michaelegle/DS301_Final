@@ -18,6 +18,7 @@ library(data.table)
 library(MASS)
 library(ISLR)
 library(class)
+library(caret)
 ```
 
 ```{r, include=FALSE}
@@ -132,6 +133,63 @@ table(knn_pred, test_Y)
 ```
 We have an overall correct classification rate of 0.71
 
+Let's perform 5-fold cross validation to find optimal $k$.
+
+```{r}
+accidents2 <- accidents
+standardized.X2 <- scale(accidents %>% dplyr::select(latitude, longitude))
+
+flds <- createFolds(accidents$accident_severity, k = 5, list = TRUE, 
+                    returnTrain = FALSE)
+
+
+cv_error = matrix(0,5,3)
+K= c(1,3,5)
+for(j in 1:length(K)){
+  k = K[j]
+  for(i in 1:5){
+    test_index = flds[[i]]
+    
+    testX = standardized.X2[test_index,]
+    
+    trainX = standardized.X2[-test_index,]
+    
+    trainY = accidents2$accident_severity[-test_index]
+    
+    testY = accidents2$accident_severity[test_index]
+    
+    knn.pred = knn(trainX,testX,trainY,k=k)
+    cv_error[i,j] = mean(testY!=knn.pred)
+  }
+}
+
+apply(cv_error,2,mean)
+```
+
+It looks like $k = 5$ is the optimal value. Let's try creating our model again with that.
+
+```{r}
+set.seed(37)
+accidents <- accidents %>%
+  filter(!is.na(latitude) & !is.na(longitude))
+
+test_index <- sample(1:nrow(accidents), nrow(accidents) / 2, replace = F)
+
+standardized_X <- scale(accidents %>% dplyr::select(latitude, longitude))
+
+train_X <- standardized_X[-test_index,]
+test_X <- standardized_X[test_index,]
+train_Y <- accidents$accident_severity[-test_index]
+test_Y <- accidents$accident_severity[test_index]
+
+set.seed(37)
+knn_pred <- knn(train_X, test_X, train_Y, k = 5)
+
+print(mean(knn_pred == test_Y))
+table(knn_pred, test_Y)
+```
+
+We now have accuracy of 0.801. However, the new KNN model only predicted that 48 of the observations in the training set were fatal accidents. In reality, over 800 of them were. This can be attributed to the lack of variety in the data set. There are an overwhelming number of slight accidents compared to serious or fatal accidents.
 
 # Question 2: Can we predict when an accident will be fatal based on the driving conditions?
 
@@ -318,4 +376,6 @@ iv. Question 2 Results analysis
 John Langenwalter
 
 Michael Egle
-
+i. Data Cleaning
+ii. Question 1 kNN Model
+iii. Question 1 cross validation for optimal $k$.
