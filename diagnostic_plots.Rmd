@@ -1,0 +1,41 @@
+---
+title: "Untitled"
+author: "Jack Langenwalter"
+date: "4/28/2021"
+output: html_document
+---
+
+```{r}
+library(janitor)
+accidents <- read_csv("/Users/lang7715/Downloads/archive/dftRoadSafety_Accidents_2016.csv") %>%
+  janitor::clean_names()
+head(accidents)
+```
+
+```{r}
+light = lm(accident_severity~light_conditions, data = accidents)
+summary(light)
+plot(light)
+```
+
+
+```{r}
+speed = lm(accident_severity~speed_limit
+, data = accidents)
+summary(speed)
+plot(speed)
+```
+
+```{r}
+conditions = lm(accident_severity~road_surface_conditions + weather_conditions
+, data = accidents)
+summary(conditions)
+plot(conditions)
+```
+
+```{r}
+speed_light = lm(accident_severity ~ speed_limit + light_conditions, data = accidents)
+summary(speed_light)
+plot(speed_light)
+```
+
