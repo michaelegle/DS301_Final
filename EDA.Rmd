@@ -1,0 +1,133 @@
+---
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(janitor)
+library(tree)
+library(stats)
+library(factoextra)
+library(neuralnet)
+library(mltools)
+library(data.table)
+library(MASS)
+library(ISLR)
+library(class)
+library(caret)
+```
+
+```{r, include=FALSE}
+cas <- read_csv("Cas.csv") %>%
+  janitor::clean_names()
+accidents <- read_csv("dftRoadSafety_Accidents_2016.csv") %>%
+  janitor::clean_names()
+makemodel <- read_csv("MakeModel2016.csv") %>%
+  janitor::clean_names()
+veh <- read_csv("Veh.csv") %>%
+  janitor::clean_names()
+```
+
+# Introduction\
+Here we need a summary of what we are trying to discover in our report
+
+## The Dataset\
+This should provide an analysis of the dataset and explore trends/patters in the data
+
+**EDA**
+```{r}
+table(accidents$accident_severity)
+```
+
+## Questions of Interest\
+After exploring the data, we decided to analyze two questions of interest.
+
+1. Can We Help Find Safer Routes For Cyclists?
+2. Can we predict when an accident will be fatal based on the driving conditions?
+
+
+# Methodology\
+This section is for describing the methodology we will use to analyze our questions of interest
+
+
+## Data cleaning
+```{r}
+accidents <- accidents %>%
+  mutate(weather_conditions = case_when(weather_conditions == -1 ~ "No data",
+                                        weather_conditions == 1 ~ "Fine",
+                                        weather_conditions == 2 ~ "Rain_no_high_wind",
+                                        weather_conditions == 3 ~ "Snow_no_high_wind",
+                                        weather_conditions == 4 ~ "Fine_high_wind",
+                                        weather_conditions == 5 ~ "Rain_high_wind",
+                                        weather_conditions == 6 ~ "Snow_high_wind",
+                                        weather_conditions == 7 ~ "Fog_or_mist",
+                                        weather_conditions == 8 ~ "Other",
+                                        weather_conditions == 9 ~ "Unknown",
+                                        TRUE ~ "NA"),
+         accident_severity = case_when(accident_severity == 1 ~ "Fatal",
+                                       accident_severity == 2 ~ "Serious",
+                                       accident_severity == 3 ~ "Slight"),
+         light_conditions = case_when(light_conditions == 1 ~ "Daylight",
+                                      light_conditions == 4 ~ "Darkness_lights_lit",
+                                      light_conditions == 5 ~ "Darkness_lights_unlit",
+                                      light_conditions == 6 ~ "Darkness_no_lighting",
+                                      light_conditions == 7 ~ "Unknown",
+                                      light_conditions == -1 ~ "No data",
+                                      TRUE ~ "NA"),
+         road_surface_conditions = case_when(road_surface_conditions == 1 ~ "Dry",
+                                      road_surface_conditions == 2 ~ "Wet_or_Damp",
+                                      road_surface_conditions == 3 ~ "Snow",
+                                      road_surface_conditions == 4 ~ "Frost_or_Ice",
+                                      road_surface_conditions == 5 ~ "Flood_over_3cm",
+                                      road_surface_conditions == 6 ~ "Oil_or_diesel",
+                                      road_surface_conditions == 7 ~ "Mud",
+                                      road_surface_conditions == -1 ~ "No data",
+                                      TRUE ~ "NA")) %>%
+  filter(weather_conditions != "No data" & weather_conditions != "Other" &
+         weather_conditions != "Unknown" & weather_conditions != "NA" &
+         light_conditions != "No data" & light_conditions != "Other" &
+         light_conditions != "Unknown" & light_conditions != "NA" &
+         road_surface_conditions != "No data" & road_surface_conditions != "Other" &
+         road_surface_conditions != "Unknown" & road_surface_conditions != "NA") # get rid of ambiguous/unknown weather/light conditions
+```
+
+
+
+```{r}
+    accidents1 <- accidents %>% sample_n(5000)
+    str(accidents1)
+    par(mfrow = c(2, 2))
+
+    #accident_count <- table(accidents$accident_severity)
+    #accident_count[1] / nrow(accidents$accident_severity)
+
+
+    accidents1 %>%
+        ggplot(aes(x = "", y = accident_severity, fill = accident_severity)) +
+        geom_bar(stat = "identity", width = 1) +
+        coord_polar(theta = "y", start = 0) +
+        labs(x = "", y = "", title = "Proportion of accident severity")
+
+    accidents1 %>%
+        ggplot(aes(x = road_surface_conditions)) +
+        geom_bar(aes(fill = accident_severity))
+
+    accidents1 %>%
+        ggplot(aes(x = speed_limit)) +
+        geom_bar(aes(fill = accident_severity), position = "fill")
+
+    accidents1 %>%
+        ggplot(aes(x = urban_or_rural_area)) +
+        geom_bar(aes(fill = accident_severity), position = "fill")
+
+
+
+    accidents1 %>%
+        ggplot(aes(x = light_conditions)) +
+        geom_bar(aes(fill = accident_severity))
+
+    accidents1 %>%
+        ggplot(aes(x = weather_conditions)) +
+        geom_bar(aes(fill = accident_severity), position = "fill")
+```
