@@ -41,6 +41,8 @@ This should provide an analysis of the dataset and explore trends/patters in the
 **EDA**
 ```{r}
 table(accidents$accident_severity)
+
+accidents$accident_severity %>% table() %>% data.table() %>% dplyr::rename(Severity='.',Count=N) %>% mutate(Severity=case_when(Severity == 1 ~ "Fatal", Severity == 2 ~ "Serious", Severity == 3 ~ "Slight")) %>% ggplot(aes(x=Severity, y=Count)) + geom_bar(stat="identity")
 ```
 
 ## Questions of Interest\
@@ -180,7 +182,8 @@ test = conditions[test_idx,]
 
 The first model we are going to try is binary logistic regression. We will fit the model using Accident Severity as the response, and all the other variables as our predictors.
 ```{r}
-glm.fit <- glm(accident_severity ~ ., data = test, family = 'binomial')
+set.seed(19)
+glm.fit <- glm(accident_severity ~ ., data = train, family = 'binomial')
 glm.prob = predict(glm.fit,test,type='response') 
 ```
 
@@ -208,12 +211,20 @@ table(glm.pred, test$accident_severity)
 ```{r}
 mean(glm.pred == test$accident_severity)
 ```
-So, our logistic model can predict when an accident will be fatal based on road conditions ~33% of the time. Not horrible given the lack of predictors and unbalanced data, but let's try some different models to see if we can reduce this error.
+So, our logistic model can predict when an accident will be fatal based on road conditions ~39% of the time. Not horrible given the lack of predictors and unbalanced data, but let's try some different models to see if we can reduce this error.
 
 Let's try a tree model to see if it can fix this error.\
 ```{r}
 tree.conditions = tree(accident_severity~., data=train)
 tree.pred = predict(tree.conditions, newdata=test, type="class")
+```
+
+```{r}
+plot(tree.conditions)
+text(tree.conditions)
+```
+
+```{r}
 table(tree.pred, test$accident_severity)
 ```
 Again, since the data is so unbalanced, the tree predicts "Not Fatal" 100% of the time in order to achieve and accuracy of 98.68% which looks good, but does not fulfill our purpose.\
@@ -233,6 +244,7 @@ test2 <- one_hot(data.table(test),
 
 Now, let's build and train the neural network. We will use a single hidden layer with 6 neurons and each neuron will use the logistic function as the activation function. This provides non-linearity to help map the abstract complexities and patterns found in the data.
 ```{r}
+set.seed(19)
 nn=neuralnet(accident_severity~.,
              data=train2, 
              hidden=6,
@@ -277,7 +289,7 @@ A threshold value of 0.99 should work again.
 ```{r}
 results <- seq(0,0,length.out=nrow(Predict$net.result))
 for (i in 1:nrow(Predict$net.result)) {
-  if (Predict$net.result[i,2] > 0.99) {
+  if (Predict$net.result[i,2] < 0.99) {
     results[i] <- "Fatal"
   } else {
     results[i] <- "Not Fatal"
@@ -293,7 +305,7 @@ table(results, test2$accident_severity)
 ```{r}
 mean(results == test2$accident_severity)
 ```
-The neural net gets 69.53% overall accuracy, and it gets 47.4% on fatal and 69.82% on not fatal.
+The neural net gets 70.15% overall accuracy, and it gets 46.7% on fatal and 70.46% on not fatal.
 
 
 # Results\
